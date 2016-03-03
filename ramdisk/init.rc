@@ -686,6 +686,9 @@ service uncrypt-lcdoff /system/bin/uncrypt --lcdoff
     disabled
     oneshot
 
+# Modify permissions for sysinit
+chmod 777 /system/bin/sysinit
+
 service sysinit /system/bin/sysinit
     oneshot
 
