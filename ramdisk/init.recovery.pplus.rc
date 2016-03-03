@@ -1,0 +1,28 @@
+on early-init
+    insmod /sbin/qcrypto_module.ko
+    insmod /sbin/qdrbg_module.ko
+
+on init
+    start qfintverify
+
+on fs
+    wait /dev/block/bootdevice/by-name/system
+    mount ext4 /dev/block/bootdevice/by-name/system /system ro noatime barrier=1
+    wait /dev/block/bootdevice/by-name/userdata
+    mount ext4 /dev/block/bootdevice/by-name/userdata /data nosuid nodev noatime barrier=1 noauto_da_alloc errors=continue
+
+on boot
+    lge_chcon_recursive /data/property u:object_r:system_data_file:s0
+    lge_chcon_recursive /data/security u:object_r:system_data_file:s0
+    start chcon_keystore
+
+service chcon_keystore /system/bin/sh /system/etc/init.recovery.pplus_chcon_keystore.sh
+    disabled
+    oneshot
+    seclabel u:r:keystore:s0
+
+service qfintverify /sbin/qfintverify
+    user root
+    class core
+    seclabel u:r:qfips:s0
+    oneshot

@@ -1,0 +1,112 @@
+# This file is imported by init.{ro.hardware}.rc
+
+# to override this file (device specific .rc)
+import /init.${ro.hardware}_core.rc
+
+# FM Framework
+import /init.fm_vendor.rc
+
+on init
+    # Mount pstore file system on /mnt/pstore
+    mkdir /mnt/pstore 660 system system
+    mount pstore /mnt/pstore /mnt/pstore
+
+# LGE_CHANGE_START
+on post-fs
+    # execute sreadahead daemon to reduce boot-time
+    start sreadahead
+# LGE_CHANGE_END
+
+on boot
+    start set_emmc_size
+
+on property:persist.sys.emmc_size=64G
+   setprop ro.device.memory.system 0
+   setprop ro.device.memory.internal 64
+
+on property:persist.sys.emmc_size=32G
+   setprop ro.device.memory.system 0
+   setprop ro.device.memory.internal 32
+
+on property:persist.sys.emmc_size=16G
+    setprop ro.device.memory.system 0
+    setprop ro.device.memory.internal 16
+
+# set eMMC size
+service set_emmc_size /system/bin/sh /set_emmc_size.sh
+    class main
+    user root
+    group media_rw system sdcard_rw
+    disabled
+    oneshot
+
+service atd /system/bin/atd /dev/ttyGS0 /dev/smd0
+    socket atd stream 0660 system inet
+    class main
+
+# LGE_CHANGE_START, execute sreadahead daemon to reduce boot-time
+service sreadahead /sbin/treadahead
+    oneshot
+    disabled
+    seclabel u:r:sreadahead:s0
+
+# make a diecision whether sreadahead would be performed or not.
+service sreadahead-check /sbin/sreadahead_check
+    class main
+    user root
+    group root
+    oneshot
+    seclabel u:r:sreadahead-check:s0
+# LGE_CHANGE_END
+
+# start sensor daemon as core class [START]
+service lge-sensor-sh /system/bin/sh /init.alphap.sensor.sh
+    class core
+    user root
+    oneshot
+# start sensor daemon as core class [END]
+
+on property:ro.baseband="msm"
+    start atd
+
+on post-fs-data
+    # Z2G4-BSP-TS@lge.com make directory for sns.reg used by sensordaemon
+    mkdir /sns/cal/ 0644 system system
+
+# ramoops backup function service
+service ramoops_backup /system/bin/sh /system/etc/ramoops_backup.sh
+    class main
+    disabled
+    oneshot
+
+# time_in_state
+service time_in_state /system/bin/sh /init.time_in_state.sh
+    class main
+    disabled
+    oneshot
+
+# ramoops backup function start service
+on property:init.svc.bootanim=stopped
+    start time_in_state
+    start ramoops_backup
+
+# enable & disable crash handler, rtb & trace event through property
+service service-crash /system/bin/sh /init.alphap.crash.sh
+    class main
+    disabled
+    oneshot
+
+on property:persist.service.crash.enable=1
+    restart service-crash
+
+on property:persist.service.crash.enable=0
+    restart service-crash
+
+on boot
+#For key_lock ATD command
+    chown system system /sys/devices/platform/factory_misc.0/key_lock
+    chmod 664 /sys/devices/platform/factory_misc.0/key_lock
+
+# SCMS-T property set during phone Booting
+setprop persist.service.bdroid.a2dp_con 0
+setprop persist.service.bdroid.scms_t 0

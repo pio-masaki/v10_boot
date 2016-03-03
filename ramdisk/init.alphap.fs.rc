@@ -1,0 +1,112 @@
+on init
+    # For USB-OTG
+    mkdir /mnt/media_rw/USBstorage1 0700 media_rw media_rw
+    mkdir /mnt/media_rw/USBstorage2 0700 media_rw media_rw
+    mkdir /mnt/media_rw/USBstorage3 0700 media_rw media_rw
+    mkdir /mnt/media_rw/USBstorage4 0700 media_rw media_rw
+    mkdir /mnt/media_rw/USBstorage5 0700 media_rw media_rw
+    mkdir /mnt/media_rw/USBstorage6 0700 media_rw media_rw
+
+    export EXTERNAL_ADD_USB_STORAGE1 /storage/USBstorage1
+    export EXTERNAL_ADD_USB_STORAGE2 /storage/USBstorage2
+    export EXTERNAL_ADD_USB_STORAGE3 /storage/USBstorage3
+    export EXTERNAL_ADD_USB_STORAGE4 /storage/USBstorage4
+    export EXTERNAL_ADD_USB_STORAGE5 /storage/USBstorage5
+    export EXTERNAL_ADD_USB_STORAGE6 /storage/USBstorage6
+
+    mkdir /storage/USBstorage1 0700 root root
+    mkdir /storage/USBstorage2 0700 root root
+    mkdir /storage/USBstorage3 0700 root root
+    mkdir /storage/USBstorage4 0700 root root
+    mkdir /storage/USBstorage5 0700 root root
+    mkdir /storage/USBstorage6 0700 root root
+
+    mkdir /mpt 0755 system system
+
+    wait /dev/block/bootdevice/by-name/mpt
+    exec /sbin/setup_fs_static \
+        /dev/block/bootdevice/by-name/mpt \
+        no_reboot
+
+on fs
+    mount_all fstab.${ro.hardware}
+    swapon_all fstab.${ro.hardware}
+
+    wait /dev/block/bootdevice/by-name/persist
+    exec /system/bin/e2fsck -y /dev/block/bootdevice/by-name/persist
+    mount ext4 /dev/block/bootdevice/by-name/persist /persist nosuid nodev barrier=1 noatime noauto_da_alloc errors=continue
+    restorecon_recursive /persist
+    mkdir /persist/data 0700 system system
+
+    wait /dev/block/bootdevice/by-name/modem
+    mount vfat /dev/block/bootdevice/by-name/modem /firmware ro shortname=lower,uid=1000,gid=1000,dmask=227,fmask=337,context=u:object_r:firmware_file:s0
+
+    wait /dev/block/bootdevice/by-name/sns
+    exec /system/bin/e2fsck -y /dev/block/bootdevice/by-name/sns
+    mount ext4 /dev/block/bootdevice/by-name/sns /sns nosuid nodev barrier=1 noatime noauto_da_alloc errors=continue
+
+    wait /dev/block/bootdevice/by-name/drm
+    exec /system/bin/e2fsck -y /dev/block/bootdevice/by-name/drm
+    mount ext4 /dev/block/bootdevice/by-name/drm /persist-lg nosuid nodev barrier=1 noatime noauto_da_alloc errors=continue
+
+    wait /dev/block/bootdevice/by-name/mpt
+    exec /system/bin/e2fsck -y /dev/block/bootdevice/by-name/mpt
+    mount ext4 /dev/block/bootdevice/by-name/mpt /mpt nosuid nodev barrier=1 noatime noauto_da_alloc errors=continue
+
+    # Executing tune2fs to reserve some region in /data.(40MB)
+    exec /system/bin/tune2fs -u system -r 10240 /dev/block/bootdevice/by-name/userdata
+
+on post-fs-data
+    chown system system /sns
+    chmod 0755 /sns
+
+    chown system system /persist-lg
+    chmod 0755 /persist-lg
+
+    chown system system /mpt
+    chmod 0775 /mpt
+
+service sdcard /system/bin/sdcard -u 1023 -g 1023 -l /data/media /mnt/shell/emulated
+    class late_start
+    oneshot
+
+service fuse_external_SD /system/bin/sdcard -u 1023 -g 1023 -w 1023 -d /mnt/media_rw/external_SD /storage/external_SD
+    class late_start
+    disabled
+    oneshot
+
+# Binding fuse mount point to /storage/emulated/legacy
+on property:init.svc.sdcard=running
+    wait /mnt/shell/emulated/0
+    mount none /mnt/shell/emulated/0 /storage/emulated/legacy bind
+
+# fuse for USBStorage
+service fuse_USBstorage1 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/USBstorage1 /storage/USBstorage1
+    class late_start
+    disabled
+    oneshot
+
+service fuse_USBstorage2 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/USBstorage2 /storage/USBstorage2
+    class late_start
+    disabled
+    oneshot
+
+service fuse_USBstorage3 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/USBstorage3 /storage/USBstorage3
+    class late_start
+    disabled
+    oneshot
+
+service fuse_USBstorage4 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/USBstorage4 /storage/USBstorage4
+    class late_start
+    disabled
+    oneshot
+
+service fuse_USBstorage5 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/USBstorage5 /storage/USBstorage5
+    class late_start
+    disabled
+    oneshot
+
+service fuse_USBstorage6 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/USBstorage6 /storage/USBstorage6
+    class late_start
+    disabled
+    oneshot
